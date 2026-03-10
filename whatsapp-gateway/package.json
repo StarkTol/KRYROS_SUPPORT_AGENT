@@ -1,0 +1,21 @@
+{
+  "name": "kryros-whatsapp-gateway",
+  "version": "1.0.0",
+  "description": "WhatsApp Gateway Service using Baileys",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "baileys": "^6.10.4",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.4",
+    "cors": "^2.8.5",
+    "qrcode": "^1.5.3",
+    "dotenv": "^16.4.1",
+    "axios": "^1.6.7",
+    "qrcode-terminal": "^0.12.0"
+  }
+}

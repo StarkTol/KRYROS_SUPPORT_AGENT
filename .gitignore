@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Environment files (keep template)
+*.env
+
+# WhatsApp auth session files
+whatsapp-auth/
+
+# Build outputs
+dist/
+build/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Neon database
+*.sql
