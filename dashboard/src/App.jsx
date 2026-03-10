@@ -3,11 +3,14 @@ import io from 'socket.io-client'
 import axios from 'axios'
 import { format } from 'date-fns'
 
-const API_URL = 'http://localhost:3000'
-const SOCKET_URL = 'http://localhost:3000'
+// Production URLs
+const API_URL = 'https://supportagentbackend.onrender.com'
+const SOCKET_URL = 'https://supportagentbackend.onrender.com'
 
 // Initialize socket
-const socket = io(SOCKET_URL)
+const socket = io(SOCKET_URL, {
+  transports: ['websocket', 'polling']
+})
 
 function App() {
   const [customers, setCustomers] = useState([])

@@ -135,9 +135,9 @@ class WhatsAppClient {
     };
   }
 
-  async forwardToBackend(message) {
+    async forwardToBackend(message) {
     try {
-      const backendUrl = process.env.APP_BACKEND_URL || 'http://localhost:3000';
+      const backendUrl = process.env.APP_BACKEND_URL || 'https://supportagentbackend.onrender.com';
       await axios.post(`${backendUrl}/api/messages/receive`, message);
       this.eventEmitter.emit('new-message', message);
     } catch (error) {

@@ -12,13 +12,16 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
+    origin: ['https://supportagentbackend.onrender.com', 'http://localhost:3000'],
     methods: ['GET', 'POST']
   }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['https://supportagentbackend.onrender.com', 'http://localhost:3000'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Event emitter for WhatsApp events

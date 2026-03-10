@@ -17,16 +17,20 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
-// Socket.IO setup
+// Socket.IO setup with production CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: ['https://supportagentdashboard.onrender.com', 'http://localhost:5173'],
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['https://supportagentdashboard.onrender.com', 'http://localhost:5173'],
+  credentials: true
+}));
 app.use(express.json());
 
 // Make io accessible to routes
@@ -50,7 +54,7 @@ app.use('/api/conversations', conversationsRouter);
 app.get('/api/whatsapp/status', async (req, res) => {
   try {
     const axios = (await import('axios')).default;
-    const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'http://localhost:3001';
+    const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'https://supportagentgateway.onrender.com';
     const response = await axios.get(`${gatewayUrl}/connection-status`);
     res.json(response.data);
   } catch (error) {

@@ -5,7 +5,7 @@ import aiService from '../services/ai.js';
 
 const router = express.Router();
 
-const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'http://localhost:3001';
+const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'https://supportagentgateway.onrender.com';
 
 // Receive message from WhatsApp Gateway
 router.post('/receive', async (req, res) => {
