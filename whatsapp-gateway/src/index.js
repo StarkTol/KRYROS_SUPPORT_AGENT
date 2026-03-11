@@ -33,6 +33,7 @@ const waEmitter = new EventEmitter();
 
 // WhatsApp client instance
 let waClient = null;
+const AUTH_DIR = './whatsapp-auth';
 
 // API Routes
 app.get('/health', (req, res) => {
