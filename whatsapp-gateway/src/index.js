@@ -90,10 +90,32 @@ app.post('/disconnect', async (req, res) => {
 
 app.post('/reconnect', async (req, res) => {
   try {
-    await waClient.disconnect();
+    console.log('[Gateway] Reconnecting WhatsApp...');
+    
+    if (!waClient) {
+      // Create new client if not exists
+      const WhatsAppClient = (await import('./bailey.js')).default;
+      waClient = new WhatsAppClient(waEmitter);
+    } else {
+      try {
+        await waClient.disconnect();
+      } catch (e) {
+        // Ignore disconnect errors
+      }
+    }
+    
+    // Connect and wait a bit for QR code
     waClient.connect();
-    res.json({ success: true, message: 'Reconnecting...' });
+    
+    // Wait for QR code to be generated
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    const qr = waClient.getQRCode();
+    console.log('[Gateway] QR code available:', !!qr);
+    
+    res.json({ success: true, message: 'Reconnecting...', qrAvailable: !!qr });
   } catch (error) {
+    console.error('[Gateway] Reconnect error:', error);
     res.status(500).json({ error: error.message });
   }
 });
