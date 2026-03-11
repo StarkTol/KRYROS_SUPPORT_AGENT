@@ -79,6 +79,24 @@ body {
   background: #4caf50;
 }
 
+.connection-manager {
+  display: flex;
+  align-items: center;
+}
+
+.qr-code {
+  text-align: center;
+}
+
+.qr-code img {
+  width: 200px;
+  height: 200px;
+}
+
+.header-right {
+  margin-left: auto;
+}
+
 /* Main Layout */
 .main-container {
   display: flex;

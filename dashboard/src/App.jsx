@@ -4,13 +4,15 @@ import axios from 'axios'
 import { format } from 'date-fns'
 
 // Production URLs
-const API_URL = 'https://supportagentbackend.onrender.com'
-const SOCKET_URL = 'https://supportagentbackend.onrender.com'
+const API_URL = import.meta.env.VITE_API_URL || 'https://supportagentbackend.onrender.com'
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://supportagentbackend.onrender.com'
 
 // Initialize socket
 const socket = io(SOCKET_URL, {
   transports: ['websocket', 'polling']
 })
+
+import ConnectionManager from './ConnectionManager'
 
 function App() {
   const [customers, setCustomers] = useState([])
@@ -194,10 +196,9 @@ function App() {
       <header className="header">
         <div className="header-left">
           <div className="logo">Kryros Chat</div>
-          <div className="connection-status">
-            <span className={`status-dot ${connectionStatus === 'open' ? 'connected' : ''}`}></span>
-            <span>{connectionStatus === 'open' ? 'Connected' : 'Disconnected'}</span>
-          </div>
+        </div>
+        <div className="header-right">
+          <ConnectionManager connectionStatus={connectionStatus} />
         </div>
       </header>
 
