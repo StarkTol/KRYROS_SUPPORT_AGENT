@@ -28,19 +28,24 @@ class WhatsAppClient {
         fs.mkdirSync(AUTH_DIR, { recursive: true });
       }
 
+      console.log('[Baileys] Fetching latest version...');
+      const { version, isLatest } = await fetchLatestBaileysVersion();
+      console.log(`[Baileys] Using version v${version.join('.')}, isLatest: ${isLatest}`);
+
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
       
       console.log('[Baileys] Initializing socket...');
       this.socket = makeWASocket({
+        version,
         printQRInTerminal: true,
-        browser: ['Ubuntu', 'Chrome', '20.0.04'],
+        browser: ['Mac OS', 'Chrome', '110.0.5481.177'],
         auth: state,
-        connectTimeoutMs: 120000,
+        connectTimeoutMs: 60000,
         keepAliveIntervalMs: 30000,
         retryRequestDelayMs: 5000,
         defaultQueryTimeoutMs: 60000,
         logger: {
-          level: 'debug',
+          level: 'info',
           info: (m) => console.log('[Baileys-Info]', m),
           debug: (m) => console.log('[Baileys-Debug]', m),
           error: (m) => console.error('[Baileys-Error]', m),

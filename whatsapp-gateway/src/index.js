@@ -5,6 +5,7 @@ import cors from 'cors';
 import { EventEmitter } from 'events';
 import WhatsAppClient from './bailey.js';
 import dotenv from 'dotenv';
+import fs from 'fs';
 
 dotenv.config();
 
