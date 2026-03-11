@@ -29,25 +29,49 @@ class WhatsAppClient {
       }
 
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
-      const { version } = await fetchLatestBaileysVersion();
-
+      
+      console.log('[Baileys] Initializing socket...');
       this.socket = makeWASocket({
-        print: (message) => console.log('[Baileys]', message),
-        browser: ['Kryros Chat', 'Chrome', '120.0.0'],
+        printQRInTerminal: true,
+        browser: ['Ubuntu', 'Chrome', '20.0.04'],
         auth: state,
-        version,
-        connectTimeoutMs: 60000,
+        connectTimeoutMs: 120000,
         keepAliveIntervalMs: 30000,
+        retryRequestDelayMs: 5000,
+        defaultQueryTimeoutMs: 60000,
+        logger: {
+          level: 'debug',
+          info: (m) => console.log('[Baileys-Info]', m),
+          debug: (m) => console.log('[Baileys-Debug]', m),
+          error: (m) => console.error('[Baileys-Error]', m),
+          warn: (m) => console.warn('[Baileys-Warn]', m),
+          trace: () => {},
+          fatal: (m) => console.error('[Baileys-Fatal]', m),
+          child: () => this.socket.logger
+        }
       });
+      console.log('[Baileys] Socket object created');
 
       // Handle credentials update
-      this.socket.ev.on('creds.update', saveCreds);
+      this.socket.ev.on('creds.update', async () => {
+        console.log('[Baileys] Credentials updated event received');
+        await saveCreds();
+      });
+
+      console.log('[Baileys] Registered creds.update listener');
 
       // Handle connection events
-      this.socket.ev.on('connection.update', (update) => {
+      this.socket.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
+        
+        console.log('[Baileys] connection.update event:', JSON.stringify({ 
+          connection, 
+          hasQR: !!qr,
+          error: lastDisconnect?.error?.message 
+        }));
 
         if (qr) {
+          console.log('[Baileys] QR code received in connection.update');
           this.handleQRCode(qr);
         }
 
@@ -60,15 +84,17 @@ class WhatsAppClient {
               ? new Boom(lastDisconnect.error).output.statusCode
               : DisconnectReason.unknown;
             
-            console.log('[Baileys] Connection closed:', DisconnectReason[reason]);
+            console.log('[Baileys] Connection closed:', DisconnectReason[reason] || reason);
             
             // Reconnect if not logged out
             if (reason !== DisconnectReason.loggedOut) {
-              this.connect();
+              console.log('[Baileys] Attempting auto-reconnect in 5s...');
+              setTimeout(() => this.connect(), 5000);
             }
           } else if (connection === 'open') {
-            console.log('[Baileys] Connected to WhatsApp');
+            console.log('[Baileys] Connection established successfully');
             this.qrCode = null;
+            this.currentQR = null;
             this.eventEmitter.emit('connected');
           }
         }
@@ -96,9 +122,16 @@ class WhatsAppClient {
 
   async handleQRCode(qr) {
     try {
+      console.log('[Baileys] Generating data URL for QR...');
       // Generate QR code as data URL
-      this.qrCode = await qrcode.toDataURL(qr);
+      this.qrCode = await qrcode.toDataURL(qr, {
+        errorCorrectionLevel: 'H',
+        margin: 1,
+        width: 400
+      });
       this.currentQR = qr;
+      
+      console.log('[Baileys] QR Data URL generated length:', this.qrCode.length);
       
       // Display QR in terminal
       QRCodeTerminal.generate(qr, { small: true });
