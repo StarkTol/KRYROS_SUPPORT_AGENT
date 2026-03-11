@@ -55,8 +55,8 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
         setQRCode(response.data.qr)
         setShowQR(true)
         setLoading(false)
-      } else if (attempt < 15) {
-        // Poll for 30 seconds total (15 * 2s)
+      } else if (attempt < 30) {
+        // Poll for 60 seconds total (30 * 2s)
         setTimeout(() => fetchQRCode(attempt + 1), 2000)
       } else {
         setError('QR generation timed out. Please try again.')
