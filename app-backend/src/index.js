@@ -8,6 +8,7 @@ import dotenv from 'dotenv';
 import customersRouter from './routes/customers.js';
 import messagesRouter from './routes/messages.js';
 import conversationsRouter from './routes/conversations.js';
+import whatsappRouter from './routes/whatsapp.js';
 
 // Database initialization (import to run init)
 import './services/database.js';
