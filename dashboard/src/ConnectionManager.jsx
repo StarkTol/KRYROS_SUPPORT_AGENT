@@ -6,9 +6,8 @@ const API_URL = import.meta.env.VITE_API_URL || 'https://supportagentbackend.onr
 function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
   const [qrCode, setQRCode] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [showQR, setShowQR] = useState(false)
+  const [showPanel, setShowPanel] = useState(false)
   const [error, setError] = useState(null)
-  const [retryCount, setRetryCount] = useState(0)
 
   useEffect(() => {
     if (socket) {
@@ -16,15 +15,24 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
         console.log('QR received via socket')
         if (data.qr) {
           setQRCode(data.qr)
-          setShowQR(true)
+          setShowPanel(true)
           setLoading(false)
         }
       })
 
+      socket.on('connection-status', (status) => {
+        console.log('Status received via socket:', status)
+        onStatusChange(status)
+        if (status === 'open') {
+          setShowPanel(false)
+          setQRCode(null)
+        }
+      })
+
       socket.on('connected', () => {
-        console.log('WhatsApp connected')
+        console.log('WhatsApp fully connected')
         onStatusChange('open')
-        setShowQR(false)
+        setShowPanel(false)
         setQRCode(null)
         setLoading(false)
       })
@@ -33,6 +41,7 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
     return () => {
       if (socket) {
         socket.off('qr-code')
+        socket.off('connection-status')
         socket.off('connected')
       }
     }
@@ -46,20 +55,19 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
       
       if (response.data.status === 'open') {
         onStatusChange('open')
-        setShowQR(false)
+        setShowPanel(false)
         setLoading(false)
         return
       }
 
       if (response.data.qr) {
         setQRCode(response.data.qr)
-        setShowQR(true)
+        setShowPanel(true)
         setLoading(false)
       } else if (attempt < 30) {
-        // Poll for 60 seconds total (30 * 2s)
         setTimeout(() => fetchQRCode(attempt + 1), 2000)
       } else {
-        setError('QR generation timed out. Please try again.')
+        setError('QR generation timed out. Please try Reset Session.')
         setLoading(false)
       }
     } catch (err) {
@@ -74,6 +82,7 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
     setLoading(true)
     setError(null)
     setQRCode(null)
+    setShowPanel(true)
     try {
       const response = await axios.post(`${API_URL}/api/whatsapp/reconnect`, { force })
       console.log('Reconnect response:', response.data)
@@ -81,7 +90,6 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
       if (response.data.qrAvailable) {
         await fetchQRCode()
       } else {
-        // Wait a bit longer for initial generation
         setTimeout(() => fetchQRCode(), 3000)
       }
     } catch (err) {
@@ -98,7 +106,7 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
     try {
       await axios.post(`${API_URL}/api/whatsapp/disconnect`)
       onStatusChange('disconnected')
-      setShowQR(false)
+      setShowPanel(false)
       setQRCode(null)
     } catch (err) {
       console.error('Error disconnecting:', err)
@@ -110,21 +118,31 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
 
   return (
     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
+        <div style={{
+          width: '10px',
+          height: '10px',
+          borderRadius: '50%',
+          backgroundColor: connectionStatus === 'open' ? '#25D366' : '#ff4444'
+        }} />
+        <span style={{ fontSize: '14px', fontWeight: '500', color: 'white' }}>
+          {connectionStatus === 'open' ? 'Connected' : 'Disconnected'}
+        </span>
+      </div>
+
       {connectionStatus !== 'open' && (
         <button
           onClick={() => handleReconnect(true)}
           disabled={loading}
           style={{
             padding: '8px 16px',
-            background: '#333',
+            background: 'rgba(0,0,0,0.3)',
             color: 'white',
-            border: 'none',
+            border: '1px solid rgba(255,255,255,0.3)',
             borderRadius: '5px',
             cursor: loading ? 'not-allowed' : 'pointer',
-            fontSize: '14px',
-            fontWeight: 'normal'
+            fontSize: '13px'
           }}
-          title="Force a new QR code by clearing existing session"
         >
           Reset Session
         </button>
@@ -135,8 +153,8 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
         disabled={loading}
         style={{
           padding: '8px 16px',
-          background: connectionStatus === 'open' ? '#ff4444' : '#25D366',
-          color: 'white',
+          background: connectionStatus === 'open' ? '#ff4444' : '#ffffff',
+          color: connectionStatus === 'open' ? '#ffffff' : '#128C7E',
           border: 'none',
           borderRadius: '5px',
           cursor: loading ? 'not-allowed' : 'pointer',
@@ -147,74 +165,88 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
         {loading ? 'Loading...' : connectionStatus === 'open' ? 'Disconnect' : 'Connect WhatsApp'}
       </button>
 
-      {error && (
-        <span style={{ color: 'red', fontSize: '12px' }}>{error}</span>
-      )}
-
-      {showQR && qrCode && (
+      {/* QR Code Side Panel */}
+      {showPanel && (
         <div style={{
           position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.8)',
+          top: '70px',
+          right: '20px',
+          width: '320px',
+          background: 'white',
+          boxShadow: '-5px 0 20px rgba(0,0,0,0.1)',
+          borderRadius: '12px',
+          padding: '20px',
+          zIndex: 1000,
+          border: '1px solid #e0e0e0',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
+          flexDirection: 'column',
+          alignItems: 'center'
         }}>
-          <div style={{
-            background: 'white',
-            padding: '30px',
-            borderRadius: '15px',
-            textAlign: 'center',
-            maxWidth: '400px'
-          }}>
-            <h3 style={{ marginBottom: '10px', color: '#333' }}>Scan QR Code with WhatsApp</h3>
-            <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
-              Open WhatsApp on your phone, tap Menu or Settings, and select Linked Devices.
-            </p>
-            <img 
-              src={qrCode} 
-              alt="QR Code" 
-              style={{ 
-                width: '280px', 
-                height: '280px',
-                border: '1px solid #eee',
-                borderRadius: '10px',
-                padding: '10px'
-              }} 
-            />
-            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
-              <button 
-                onClick={() => setShowQR(false)}
-                style={{
-                  padding: '10px 20px',
-                  background: '#eee',
-                  color: '#333',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Close
-              </button>
-              <button 
-                onClick={() => handleReconnect(true)}
-                style={{
-                  padding: '10px 20px',
-                  background: '#333',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }}
-              >
-                Retry Fresh
-              </button>
-            </div>
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, fontSize: '16px', color: '#333' }}>WhatsApp Connection</h3>
+            <button 
+              onClick={() => setShowPanel(false)}
+              style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#999' }}
+            >
+              ×
+            </button>
           </div>
+
+          {loading && !qrCode && (
+            <div style={{ padding: '40px 0', textAlign: 'center' }}>
+              <div className="spinner" style={{ margin: '0 auto 15px' }}></div>
+              <p style={{ color: '#666', fontSize: '14px' }}>Initializing WhatsApp...</p>
+            </div>
+          )}
+
+          {error && (
+            <div style={{ padding: '20px', background: '#fff5f5', color: '#d32f2f', borderRadius: '8px', fontSize: '13px', marginBottom: '15px', width: '100%' }}>
+              {error}
+            </div>
+          )}
+
+          {qrCode && (
+            <>
+              <p style={{ marginBottom: '15px', color: '#666', fontSize: '13px', textAlign: 'center' }}>
+                Scan this QR code with your WhatsApp app to link your account.
+              </p>
+              <div style={{ 
+                padding: '15px', 
+                background: '#f9f9f9', 
+                borderRadius: '10px',
+                border: '1px solid #eee'
+              }}>
+                <img 
+                  src={qrCode} 
+                  alt="WhatsApp QR Code" 
+                  style={{ width: '240px', height: '240px', display: 'block' }} 
+                />
+              </div>
+              <div style={{ marginTop: '20px', width: '100%' }}>
+                <button 
+                  onClick={() => handleReconnect(true)}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    background: '#f0f0f0',
+                    color: '#333',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px'
+                  }}
+                >
+                  Refresh QR Code
+                </button>
+              </div>
+            </>
+          )}
+
+          {!loading && !qrCode && !error && (
+            <p style={{ color: '#999', fontSize: '13px', textAlign: 'center', padding: '20px 0' }}>
+              Waiting for gateway response...
+            </p>
+          )}
         </div>
       )}
     </div>

@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
+import { io as ioClient } from 'socket.io-client';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
@@ -18,6 +19,8 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
+const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'https://supportagentgateway.onrender.com';
+
 // Socket.IO setup with production CORS
 const io = new Server(httpServer, {
   cors: {
@@ -25,6 +28,40 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
     credentials: true
   }
+});
+
+// Bridge events from WhatsApp Gateway to Dashboard
+console.log('[Socket.IO] Connecting to Gateway:', gatewayUrl);
+const gatewaySocket = ioClient(gatewayUrl, {
+  transports: ['websocket', 'polling']
+});
+
+gatewaySocket.on('connect', () => {
+  console.log('[Socket.IO] Connected to WhatsApp Gateway');
+});
+
+gatewaySocket.on('qr-code', (data) => {
+  console.log('[Socket.IO] Received QR code from Gateway');
+  io.emit('qr-code', data);
+});
+
+gatewaySocket.on('connection-status', (status) => {
+  console.log('[Socket.IO] Received connection status from Gateway:', status);
+  io.emit('connection-status', status);
+});
+
+gatewaySocket.on('connected', () => {
+  console.log('[Socket.IO] WhatsApp fully connected');
+  io.emit('connected');
+});
+
+gatewaySocket.on('new-message', (data) => {
+  console.log('[Socket.IO] Received new message from Gateway');
+  io.emit('new-message', data);
+});
+
+gatewaySocket.on('connect_error', (error) => {
+  console.error('[Socket.IO] Gateway connection error:', error.message);
 });
 
 // Middleware
