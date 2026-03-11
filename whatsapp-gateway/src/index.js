@@ -15,7 +15,10 @@ const io = new Server(httpServer, {
   cors: {
     origin: ['https://supportagentbackend.onrender.com', 'http://localhost:3000'],
     methods: ['GET', 'POST']
-  }
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000
 });
 
 // Middleware
@@ -94,41 +97,67 @@ app.post('/reconnect', async (req, res) => {
     const { force = false } = req.body;
     console.log(`[Gateway] Reconnecting WhatsApp (force: ${force})...`);
     
+    // Ensure auth directory exists
+    if (!fs.existsSync(AUTH_DIR)) {
+      fs.mkdirSync(AUTH_DIR, { recursive: true });
+    }
+
     if (waClient) {
       try {
+        console.log('[Gateway] Disconnecting existing client...');
         await waClient.disconnect();
       } catch (e) {
-        // Ignore disconnect errors
+        console.warn('[Gateway] Disconnect error:', e.message);
       }
     }
 
     if (force) {
-      const AUTH_DIR = './whatsapp-auth';
       try {
         if (fs.existsSync(AUTH_DIR)) {
           console.log('[Gateway] Clearing auth directory for fresh session');
           fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+          fs.mkdirSync(AUTH_DIR, { recursive: true });
         }
       } catch (err) {
         console.warn('[Gateway] Warning: Could not clear auth directory:', err.message);
       }
     }
     
+    // Create new client if it doesn't exist
     if (!waClient) {
-      const WhatsAppClient = (await import('./bailey.js')).default;
+      console.log('[Gateway] Initializing new WhatsApp client...');
       waClient = new WhatsAppClient(waEmitter);
     }
     
+    // Listen for events once
+    waEmitter.removeAllListeners('qr-code');
+    waEmitter.removeAllListeners('connection-status');
+    waEmitter.removeAllListeners('connected');
+    waEmitter.removeAllListeners('new-message');
+
+    waEmitter.on('qr-code', (data) => io.emit('qr-code', data));
+    waEmitter.on('connection-status', (status) => io.emit('connection-status', status));
+    waEmitter.on('connected', () => io.emit('connected'));
+    waEmitter.on('new-message', (data) => io.emit('new-message', data));
+
     // Connect and wait a bit for QR code
+    console.log('[Gateway] Starting WhatsApp connection...');
     waClient.connect();
     
-    // Wait for QR code to be generated
-    await new Promise(resolve => setTimeout(resolve, 5000));
+    // Wait for QR code to be generated (initial window)
+    let qrGenerated = false;
+    const qrTimeout = setTimeout(() => {
+      if (!qrGenerated) {
+        console.log('[Gateway] QR code not generated within initial 10s');
+      }
+    }, 10000);
+
+    waEmitter.once('qr-code', () => {
+      qrGenerated = true;
+      clearTimeout(qrTimeout);
+    });
     
-    const qr = waClient.getQRCode();
-    console.log('[Gateway] QR code available:', !!qr);
-    
-    res.json({ success: true, message: 'Reconnecting...', qrAvailable: !!qr });
+    res.json({ success: true, message: 'Connection sequence started...' });
   } catch (error) {
     console.error('[Gateway] Reconnect error:', error);
     res.status(500).json({ error: error.message });

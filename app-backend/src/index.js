@@ -33,7 +33,13 @@ const io = new Server(httpServer, {
 // Bridge events from WhatsApp Gateway to Dashboard
 console.log('[Socket.IO] Connecting to Gateway:', gatewayUrl);
 const gatewaySocket = ioClient(gatewayUrl, {
-  transports: ['websocket', 'polling']
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 45000,
+  autoConnect: true
 });
 
 gatewaySocket.on('connect', () => {

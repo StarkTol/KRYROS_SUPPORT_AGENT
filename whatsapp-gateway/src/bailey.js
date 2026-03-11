@@ -28,22 +28,34 @@ class WhatsAppClient {
         fs.mkdirSync(AUTH_DIR, { recursive: true });
       }
 
-      console.log('[Baileys] Fetching latest version...');
-      const { version, isLatest } = await fetchLatestBaileysVersion();
-      console.log(`[Baileys] Using version v${version.join('.')}, isLatest: ${isLatest}`);
+      console.log('[Baileys] Setting up auth and version...');
+      let version = [2, 3000, 1015901307]; // Fallback version
+      try {
+        const latest = await fetchLatestBaileysVersion();
+        if (latest && latest.version) {
+          version = latest.version;
+          console.log(`[Baileys] Using latest version v${version.join('.')}`);
+        }
+      } catch (vErr) {
+        console.warn('[Baileys] Could not fetch latest version, using fallback:', version.join('.'));
+      }
 
       const { state, saveCreds } = await useMultiFileAuthState(AUTH_DIR);
       
-      console.log('[Baileys] Initializing socket...');
+      console.log('[Baileys] Initializing socket with extended timeouts...');
       this.socket = makeWASocket({
         version,
         printQRInTerminal: true,
-        browser: ['Mac OS', 'Chrome', '110.0.5481.177'],
+        browser: ['Kryros Chat', 'Chrome', '110.0.5481.177'],
         auth: state,
-        connectTimeoutMs: 60000,
-        keepAliveIntervalMs: 30000,
+        connectTimeoutMs: 120000, // 2 minutes for slow cloud starts
+        qrTimeoutMs: 60000,      // QR lasts 60s
+        keepAliveIntervalMs: 25000, // More frequent keep-alive for Render
         retryRequestDelayMs: 5000,
         defaultQueryTimeoutMs: 60000,
+        generateHighQualityLinkPreview: false, // Save memory/CPU
+        syncFullHistory: false,               // Save memory/CPU
+        markOnlineOnConnect: true,
         logger: {
           level: 'info',
           info: (m) => console.log('[Baileys-Info]', m),
