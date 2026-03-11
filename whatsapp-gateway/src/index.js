@@ -104,9 +104,13 @@ app.post('/reconnect', async (req, res) => {
 
     if (force) {
       const AUTH_DIR = './whatsapp-auth';
-      if (fs.existsSync(AUTH_DIR)) {
-        console.log('[Gateway] Clearing auth directory for fresh session');
-        fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+      try {
+        if (fs.existsSync(AUTH_DIR)) {
+          console.log('[Gateway] Clearing auth directory for fresh session');
+          fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        }
+      } catch (err) {
+        console.warn('[Gateway] Warning: Could not clear auth directory:', err.message);
       }
     }
     
