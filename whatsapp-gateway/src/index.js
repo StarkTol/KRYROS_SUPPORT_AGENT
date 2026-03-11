@@ -46,17 +46,38 @@ app.get('/health', (req, res) => {
 
 app.get('/connection-status', (req, res) => {
   if (!waClient) {
-    return res.json({ status: 'disconnected', message: 'Client not initialized' });
+    return res.json({ 
+      status: 'disconnected', 
+      message: 'Client not initialized',
+      clientExists: false 
+    });
   }
-  res.json({ status: waClient.getConnectionStatus() });
+  res.json({ 
+    status: waClient.getConnectionStatus(),
+    hasSocket: !!waClient.socket,
+    hasQR: !!waClient.getQRCode()
+  });
 });
 
 app.get('/qr-code', (req, res) => {
-  const qr = waClient?.getQRCode();
+  if (!waClient) {
+    return res.json({ qr: null, status: 'disconnected', error: 'waClient not initialized' });
+  }
+  const qr = waClient.getQRCode();
+  const status = waClient.getConnectionStatus();
+  console.log(`[Gateway] QR request. Status: ${status}, Has QR: ${!!qr}`);
+  
   if (qr) {
     res.json({ qr, status: 'waiting' });
   } else {
-    res.json({ qr: null, status: waClient?.getConnectionStatus() || 'disconnected' });
+    res.json({ 
+      qr: null, 
+      status: status,
+      diagnostics: {
+        socketExists: !!waClient.socket,
+        connectionStatus: waClient.connectionStatus
+      }
+    });
   }
 });
 
