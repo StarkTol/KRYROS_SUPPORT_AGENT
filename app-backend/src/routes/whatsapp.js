@@ -51,7 +51,7 @@ router.post('/reconnect', async (req, res) => {
   try {
     const { force = false } = req.body;
     console.log(`[Backend] Proxying reconnect request to Gateway (force: ${force})`);
-    const response = await axios.post(`${gatewayUrl}/reconnect`, { force });
+    const response = await axios.post(`${gatewayUrl}/reconnect`, { force }, { timeout: 60000 });
     res.json(response.data);
   } catch (error) {
     console.error('[Backend] Reconnect proxy error:', error.message);
@@ -59,7 +59,7 @@ router.post('/reconnect', async (req, res) => {
       console.error('[Backend] Gateway responded with:', error.response.status, error.response.data);
       res.status(error.response.status).json(error.response.data);
     } else {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Gateway connection failed. It might be starting up on Render.' });
     }
   }
 });

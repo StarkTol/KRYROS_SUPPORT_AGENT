@@ -84,7 +84,8 @@ class WhatsAppClient {
         console.log('[Baileys] connection.update event:', JSON.stringify({ 
           connection, 
           hasQR: !!qr,
-          error: lastDisconnect?.error?.message 
+          error: lastDisconnect?.error?.message,
+          statusCode: lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.statusCode
         }));
 
         if (qr) {
@@ -97,16 +98,26 @@ class WhatsAppClient {
           this.eventEmitter.emit('connection-status', connection);
           
           if (connection === 'close') {
-            const reason = lastDisconnect?.error
-              ? new Boom(lastDisconnect.error).output.statusCode
-              : DisconnectReason.unknown;
+            const statusCode = lastDisconnect?.error?.output?.statusCode || 
+                             lastDisconnect?.error?.statusCode || 
+                             DisconnectReason.unknown;
             
-            console.log('[Baileys] Connection closed:', DisconnectReason[reason] || reason);
+            console.log('[Baileys] Connection closed. Status Code:', statusCode);
             
-            // Reconnect if not logged out
-            if (reason !== DisconnectReason.loggedOut) {
-              console.log('[Baileys] Attempting auto-reconnect in 5s...');
-              setTimeout(() => this.connect(), 5000);
+            const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+            console.log('[Baileys] Should reconnect?', shouldReconnect);
+            
+            if (shouldReconnect) {
+              const delay = 5000;
+              console.log(`[Baileys] Reconnecting in ${delay/1000}s...`);
+              setTimeout(() => this.connect(), delay);
+            } else {
+              console.log('[Baileys] Logged out. Clearing auth directory...');
+              if (fs.existsSync(AUTH_DIR)) {
+                fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+              }
+              this.qrCode = null;
+              this.currentQR = null;
             }
           } else if (connection === 'open') {
             console.log('[Baileys] Connection established successfully');

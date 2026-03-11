@@ -130,33 +130,9 @@ app.post('/reconnect', async (req, res) => {
       waClient = new WhatsAppClient(waEmitter);
     }
     
-    // Listen for events once
-    waEmitter.removeAllListeners('qr-code');
-    waEmitter.removeAllListeners('connection-status');
-    waEmitter.removeAllListeners('connected');
-    waEmitter.removeAllListeners('new-message');
-
-    waEmitter.on('qr-code', (data) => io.emit('qr-code', data));
-    waEmitter.on('connection-status', (status) => io.emit('connection-status', status));
-    waEmitter.on('connected', () => io.emit('connected'));
-    waEmitter.on('new-message', (data) => io.emit('new-message', data));
-
     // Connect and wait a bit for QR code
     console.log('[Gateway] Starting WhatsApp connection...');
     waClient.connect();
-    
-    // Wait for QR code to be generated (initial window)
-    let qrGenerated = false;
-    const qrTimeout = setTimeout(() => {
-      if (!qrGenerated) {
-        console.log('[Gateway] QR code not generated within initial 10s');
-      }
-    }, 10000);
-
-    waEmitter.once('qr-code', () => {
-      qrGenerated = true;
-      clearTimeout(qrTimeout);
-    });
     
     res.json({ success: true, message: 'Connection sequence started...' });
   } catch (error) {

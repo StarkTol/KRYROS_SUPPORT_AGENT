@@ -95,7 +95,8 @@ function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
       }
     } catch (err) {
       console.error('Error reconnecting:', err)
-      setError('Failed to initiate connection.')
+      const msg = err.response?.data?.error || 'Failed to connect. The server might be starting up, please wait 30 seconds and try again.'
+      setError(msg)
       setLoading(false)
     }
   }
