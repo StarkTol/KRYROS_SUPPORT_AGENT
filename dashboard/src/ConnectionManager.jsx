@@ -3,24 +3,50 @@ import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://supportagentbackend.onrender.com'
 
-function ConnectionManager({ connectionStatus, onStatusChange }) {
+function ConnectionManager({ connectionStatus, onStatusChange, socket }) {
   const [qrCode, setQRCode] = useState(null)
   const [loading, setLoading] = useState(false)
   const [showQR, setShowQR] = useState(false)
   const [error, setError] = useState(null)
+  const [retryCount, setRetryCount] = useState(0)
 
-  console.log('ConnectionManager rendering, status:', connectionStatus)
+  useEffect(() => {
+    if (socket) {
+      socket.on('qr-code', (data) => {
+        console.log('QR received via socket')
+        if (data.qr) {
+          setQRCode(data.qr)
+          setShowQR(true)
+          setLoading(false)
+        }
+      })
 
-  const fetchQRCode = async (retryCount = 0) => {
-    console.log(`Fetching QR code... (Attempt ${retryCount + 1})`)
-    setLoading(true)
-    setError(null)
+      socket.on('connected', () => {
+        console.log('WhatsApp connected')
+        onStatusChange('open')
+        setShowQR(false)
+        setQRCode(null)
+        setLoading(false)
+      })
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('qr-code')
+        socket.off('connected')
+      }
+    }
+  }, [socket, onStatusChange])
+
+  const fetchQRCode = async (attempt = 1) => {
+    console.log(`Fetching QR code... (Attempt ${attempt})`)
     try {
       const response = await axios.get(`${API_URL}/api/whatsapp/qr-code`)
       console.log('QR response:', response.data)
       
-      if (retryCount === 0 && response.data.status === 'open') {
+      if (response.data.status === 'open') {
         onStatusChange('open')
+        setShowQR(false)
         setLoading(false)
         return
       }
@@ -29,34 +55,38 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
         setQRCode(response.data.qr)
         setShowQR(true)
         setLoading(false)
-      } else if (retryCount < 5) {
-        // Retry if no QR yet, up to 5 times (every 2 seconds)
-        setTimeout(() => fetchQRCode(retryCount + 1), 2000)
+      } else if (attempt < 15) {
+        // Poll for 30 seconds total (15 * 2s)
+        setTimeout(() => fetchQRCode(attempt + 1), 2000)
       } else {
+        setError('QR generation timed out. Please try again.')
         setLoading(false)
-        if (response.data.status) {
-          onStatusChange(response.data.status)
-        }
       }
     } catch (err) {
       console.error('Error fetching QR:', err)
-      setError(err.message)
+      setError('Connection failed. Please check backend.')
       setLoading(false)
     }
   }
 
-  const handleReconnect = async () => {
-    console.log('Reconnecting...')
+  const handleReconnect = async (force = false) => {
+    console.log(`Reconnecting... (force: ${force})`)
     setLoading(true)
     setError(null)
+    setQRCode(null)
     try {
-      const response = await axios.post(`${API_URL}/api/whatsapp/reconnect`)
+      const response = await axios.post(`${API_URL}/api/whatsapp/reconnect`, { force })
       console.log('Reconnect response:', response.data)
-      // Start polling for QR code
-      await fetchQRCode()
+      
+      if (response.data.qrAvailable) {
+        await fetchQRCode()
+      } else {
+        // Wait a bit longer for initial generation
+        setTimeout(() => fetchQRCode(), 3000)
+      }
     } catch (err) {
       console.error('Error reconnecting:', err)
-      setError(err.message)
+      setError('Failed to initiate connection.')
       setLoading(false)
     }
   }
@@ -72,7 +102,7 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
       setQRCode(null)
     } catch (err) {
       console.error('Error disconnecting:', err)
-      setError(err.message)
+      setError('Failed to disconnect.')
     } finally {
       setLoading(false)
     }
@@ -80,8 +110,28 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
 
   return (
     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+      {connectionStatus !== 'open' && (
+        <button
+          onClick={() => handleReconnect(true)}
+          disabled={loading}
+          style={{
+            padding: '8px 16px',
+            background: '#333',
+            color: 'white',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            fontSize: '14px',
+            fontWeight: 'normal'
+          }}
+          title="Force a new QR code by clearing existing session"
+        >
+          Reset Session
+        </button>
+      )}
+
       <button
-        onClick={connectionStatus === 'open' ? handleDisconnect : handleReconnect}
+        onClick={connectionStatus === 'open' ? handleDisconnect : () => handleReconnect(false)}
         disabled={loading}
         style={{
           padding: '8px 16px',
@@ -118,34 +168,52 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
             background: 'white',
             padding: '30px',
             borderRadius: '15px',
-            textAlign: 'center'
+            textAlign: 'center',
+            maxWidth: '400px'
           }}>
-            <h3 style={{ marginBottom: '20px', color: '#333' }}>Scan QR Code with WhatsApp</h3>
+            <h3 style={{ marginBottom: '10px', color: '#333' }}>Scan QR Code with WhatsApp</h3>
+            <p style={{ marginBottom: '20px', color: '#666', fontSize: '14px' }}>
+              Open WhatsApp on your phone, tap Menu or Settings, and select Linked Devices.
+            </p>
             <img 
               src={qrCode} 
               alt="QR Code" 
               style={{ 
                 width: '280px', 
                 height: '280px',
-                border: '2px solid #ddd',
-                borderRadius: '10px'
+                border: '1px solid #eee',
+                borderRadius: '10px',
+                padding: '10px'
               }} 
             />
-            <button 
-              onClick={() => setShowQR(false)}
-              style={{
-                marginTop: '20px',
-                padding: '12px 30px',
-                background: '#333',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Close
-            </button>
+            <div style={{ marginTop: '20px', display: 'flex', justifyContent: 'center', gap: '10px' }}>
+              <button 
+                onClick={() => setShowQR(false)}
+                style={{
+                  padding: '10px 20px',
+                  background: '#eee',
+                  color: '#333',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+              <button 
+                onClick={() => handleReconnect(true)}
+                style={{
+                  padding: '10px 20px',
+                  background: '#333',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '5px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry Fresh
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -198,7 +198,11 @@ function App() {
           <div className="logo">Kryros Chat</div>
         </div>
         <div className="header-right">
-          <ConnectionManager connectionStatus={connectionStatus} onStatusChange={setConnectionStatus} />
+          <ConnectionManager 
+            connectionStatus={connectionStatus} 
+            onStatusChange={setConnectionStatus} 
+            socket={socket}
+          />
         </div>
       </header>
 

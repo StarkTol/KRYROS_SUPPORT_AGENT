@@ -49,7 +49,8 @@ router.post('/disconnect', async (req, res) => {
 // Reconnect (proxy to gateway)
 router.post('/reconnect', async (req, res) => {
   try {
-    const response = await axios.post(`${gatewayUrl}/reconnect`);
+    const { force = false } = req.body;
+    const response = await axios.post(`${gatewayUrl}/reconnect`, { force });
     res.json(response.data);
   } catch (error) {
     res.status(500).json({ error: error.message });
