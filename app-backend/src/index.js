@@ -52,16 +52,7 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/conversations', conversationsRouter);
 
 // Get WhatsApp connection status (proxy to gateway)
-app.get('/api/whatsapp/status', async (req, res) => {
-  try {
-    const axios = (await import('axios')).default;
-    const gatewayUrl = process.env.WHATSAPP_GATEWAY_URL || 'https://supportagentgateway.onrender.com';
-    const response = await axios.get(`${gatewayUrl}/connection-status`);
-    res.json(response.data);
-  } catch (error) {
-    res.json({ status: 'unavailable', error: error.message });
-  }
-});
+app.use('/api/whatsapp', whatsappRouter);
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
