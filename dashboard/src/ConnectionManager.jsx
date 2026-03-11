@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 
-const API_URL = 'https://supportagentbackend.onrender.com'
+const API_URL = import.meta.env.VITE_API_URL || 'https://supportagentbackend.onrender.com'
 
 function ConnectionManager({ connectionStatus, onStatusChange }) {
   const [qrCode, setQRCode] = useState(null)
@@ -11,24 +11,36 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
 
   console.log('ConnectionManager rendering, status:', connectionStatus)
 
-  const fetchQRCode = async () => {
-    console.log('Fetching QR code...')
+  const fetchQRCode = async (retryCount = 0) => {
+    console.log(`Fetching QR code... (Attempt ${retryCount + 1})`)
     setLoading(true)
     setError(null)
     try {
       const response = await axios.get(`${API_URL}/api/whatsapp/qr-code`)
       console.log('QR response:', response.data)
+      
+      if (retryCount === 0 && response.data.status === 'open') {
+        onStatusChange('open')
+        setLoading(false)
+        return
+      }
+
       if (response.data.qr) {
         setQRCode(response.data.qr)
         setShowQR(true)
-      }
-      if (response.data.status) {
-        onStatusChange(response.data.status)
+        setLoading(false)
+      } else if (retryCount < 5) {
+        // Retry if no QR yet, up to 5 times (every 2 seconds)
+        setTimeout(() => fetchQRCode(retryCount + 1), 2000)
+      } else {
+        setLoading(false)
+        if (response.data.status) {
+          onStatusChange(response.data.status)
+        }
       }
     } catch (err) {
       console.error('Error fetching QR:', err)
       setError(err.message)
-    } finally {
       setLoading(false)
     }
   }
@@ -40,11 +52,11 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
     try {
       const response = await axios.post(`${API_URL}/api/whatsapp/reconnect`)
       console.log('Reconnect response:', response.data)
+      // Start polling for QR code
       await fetchQRCode()
     } catch (err) {
       console.error('Error reconnecting:', err)
       setError(err.message)
-    } finally {
       setLoading(false)
     }
   }
@@ -56,6 +68,8 @@ function ConnectionManager({ connectionStatus, onStatusChange }) {
     try {
       await axios.post(`${API_URL}/api/whatsapp/disconnect`)
       onStatusChange('disconnected')
+      setShowQR(false)
+      setQRCode(null)
     } catch (err) {
       console.error('Error disconnecting:', err)
       setError(err.message)
